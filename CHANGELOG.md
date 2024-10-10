@@ -5,6 +5,256 @@ All notable changes to Stability Matrix will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning 2.0](https://semver.org/spec/v2.0.0.html).
 
+## v2.12.2
+### Added
+- Added Beta scheduler to the scheduler selector in Inference
+### Changed
+- (Internal) Updated to Avalonia 11.1.4
+### Fixed
+- Fixed ComfyUI NF4 extension not installing properly when prompted in Inference
+- Fixed [#932](https://github.com/LykosAI/StabilityMatrix/issues/932), [#935](https://github.com/LykosAI/StabilityMatrix/issues/935), [#939](https://github.com/LykosAI/StabilityMatrix/issues/939) - InvokeAI failing to update
+- Fixed repeated nested folders being created in `Models/StableDiffusion` when using Forge in Symlink mode in certain conditions. Existing folders will be repaired to their original structure on launch.
+- Fixed minimize button not working on macOS
+### Supporters
+#### Visionaries
+- We extend our heartfelt appreciation to our dedicated Visionary-tier Patreon supporter, **Waterclouds**. Your ongoing support is invaluable!
+#### Pioneers
+- We’d also like to thank our great Pioneer-tier patrons: **tankfox**, **tanangular**, **Mr. Unknown**, and **Szir777**. Your continuous support means a lot!
+
+## v2.12.1
+### Fixed
+- Fixed [#916](https://github.com/LykosAI/StabilityMatrix/issues/916) - InvokeAI failing to install/update on macOS
+- Fixed [#914](https://github.com/LykosAI/StabilityMatrix/issues/914) - Unable to use escaped colon `:` character in Inference prompts
+- Fixed [#908](https://github.com/LykosAI/StabilityMatrix/issues/908) - Forge unable to use models from "unet" shared folder
+- Fixed [#902](https://github.com/LykosAI/StabilityMatrix/issues/902) - Images from shared outputs folder not displaying properly in Stable Diffusion WebUI-UX
+- Fixed [#898](https://github.com/LykosAI/StabilityMatrix/issues/898) - Incorrect launch options for RuinedFooocus
+- Fixed index url parsing in Python Packages window causing some packages to not have versions available
+- Fixed a crash when switching between Model Sharing options for certain packages
+### Supporters
+#### Visionaries
+- A sincere thank you to our valued Visionary-tier Patreon supporter, **Waterclouds**. Your continued support is truly appreciated, and we’re grateful to have you with us on this journey.
+#### Pioneers
+- We’d also like to extend our gratitude to our Pioneer-tier patrons: **tankfox**, **tanangular**, **Mr. Unknown**, and **Szir777**. Your ongoing support means a great deal to us!
+
+## v2.12.0
+### Added
+#### New Packages
+- [Fooocus - mashb1t's 1-Up Edition](https://github.com/mashb1t/Fooocus) by mashb1t
+- [Stable Diffusion WebUI reForge](https://github.com/Panchovix/stable-diffusion-webui-reForge/) by Panchovix
+#### Inference
+- Added type-to-search for the Inference model selectors. Start typing while the dropdown is open to navigate the list.
+- Added "Model Loader" option to Inference, for loading UNet/GGUF/NF4 models (e.g. Flux)
+- Added support for the FP8 version of Flux in the default Model Loader via the "Use Flux Guidance" Sampler Addon
+- Added trigger words to the Inference Extra Networks (Lora/Lyco) selector for quick copy & paste
+- Image viewer context menus now have 2 options: `Copy (Ctrl+C)` which now always copies the image as a file, and `Copy as Bitmap (Shift+Ctrl+C)` (Available on Windows) which copies to the clipboard as native bitmap. This changes the previous single `Copy` button behavior that would first attempt a native bitmap copy on Windows when available, and fall back to a file copy if not.
+- Added Face Detailer module to Inference
+#### Package Manager
+- Added Python dependencies override table to package installation options, where the default pip packages may be overriden for a package's install and updates. This can be changed later or added to existing packages through `Package Menu > Python Dependencies Override`
+- Added "Change Version" option to the package card overflow menu, allowing you to downgrade or upgrade a package to a specific version or commit ([#701](https://github.com/LykosAI/StabilityMatrix/issues/701), [#857](https://github.com/LykosAI/StabilityMatrix/issues/857))
+- Added "Disable Update Check" option to the package card overflow menu, allowing you to disable update checks for a specific package
+- Added Custom commit option in the Advanced Options for package installs ([#670](https://github.com/LykosAI/StabilityMatrix/issues/670), [#839](https://github.com/LykosAI/StabilityMatrix/issues/839), [#842](https://github.com/LykosAI/StabilityMatrix/issues/842))
+- Added macOS support for Fooocus & related forks
+- Added Intel OneAPI XPU backend (IPEX) option for SD.Next
+#### Checkpoint Manager
+- Added new Metadata Editor (accessible via the right-click menu), allowing you to create or edit metadata for models
+- Added "New Directory" and "Delete" options to the context menu of the tree view.
+- Added new toggle for drag & drop - when enabled, all selected models will now move together with the dragged model
+- Added "File Size" sorting option
+- Added "Hide Empty Categories" toggle
+- Added "Select All" button to the InfoBar (shown when at least one model is selected)
+- Added "Show NSFW Images" toggle
+#### Model Browser
+- Added "Hide Installed Models" toggle to the CivitAI Model Browser
+- Added toggle to hide "Early Access" models in the CivitAI Model Browser
+- Added ultralytics models to HuggingFace model browser
+#### Other
+- Added "Sign in with Google" option for connecting your Lykos Account on the Account Settings page
+- Added zoom sliders for Outputs, Checkpoints, and Model Browser pages
+- Added Settings option "Console: History Size" to adjust the number of lines stored in the console history when running packages. Defaults to 9001 lines.
+- Added optional anonymous usage reporting for gauging popularity of package installs and features. You will be asked whether you want to enable this feature on launch, and can change your choice at any time in `Settings > System > Analytics`
+- Added "Run Command" option in Settings for running a command with the embedded Python or Git executables
+- Added "Enable Long Paths" option for Git to the Settings page
+- Added "System Settings > Enable Long Paths" option to enable NTFS long paths on Windows
+- Added Korean translations thanks to maakcode!
+- (Windows, Linux) Added Vulkan rendering support using launch argument `--vulkan`. (On Windows, the default WinUI composition renderer is likely still preferrable. Linux users are encouraged to try the new renderer to see if it improves performance and responsiveness.)
+### Changed
+- Optimized image loading across the app, with loading speed now up to 4x faster for local images, and up to 17x faster for remote images
+- Image loading in the Outputs page now uses native memory management for ~2x less peak memory usage, and will release memory more quickly when switching away from the Outputs page or scrolling images out of view
+- Improved animation fluidity of image rendering while scrolling quickly across large collections (e.g. Outputs, Model Browser)
+- ComfyUI will no longer be pinned to torch 2.1.2 for nvidia users on Windows ([#861](https://github.com/LykosAI/StabilityMatrix/issues/861))
+- Model browser download progress no longer covers the entire card for the entire duration of the download
+- Updated torch index to `rocm6.1` for AMD users of ComfyUI
+- Show better error message for early access model downloads
+- Updated torch version for a1111 on mac
+- Checkpoints tab now shows "image hidden" for images that are hidden by the NSFW filter
+- OAuth-type connection errors in Account Settings now show a more detailed error message
+- The "Download Failed" message for model downloads is now persistent until dismissed
+- Separated the Generate button from the prompt control in Inference so it can be moved like other controls
+- Updated translations for Turkish and Russian
+- (Internal) Updated Avalonia to 11.1.3 - Includes major rendering and performance optimizations, animation refinements, improved IME / text selection, and improvements for window sizing / z-order / multi-monitor DPI scaling. ([avaloniaui.net/blog/avalonia-11-1-a-quantum-leap-in-cross-platform-ui-development](https://avaloniaui.net/blog/avalonia-11-1-a-quantum-leap-in-cross-platform-ui-development))
+- (Internal) Updated SkiaSharp (Rendering Backend) to 3.0.0-preview.4.1, potentially fixes issues with window rendering artifacts on some machines.
+- (Internal) Updated other dependencies for security and bug fixes.
+### Fixed
+- Fixed [#888](https://github.com/LykosAI/StabilityMatrix/issues/888) - error updating kohya_ss due to long paths
+- Fixed some ScrollViewers changing scroll position when focus changes
+- Fixed CivitAI Model Browser sometimes incorrectly showing "No models found" before toggling "Show NSFW" or "Hide Installed" filters
+- Fixed SwarmUI settings being overwritten on launch
+- Fixed issue where some Inference-generated images would be saved with the bottom missing
+- Fixed [#851](https://github.com/LykosAI/StabilityMatrix/issues/851) - missing fbgemm.dll errors when using latest torch with certain packages
+- Fixed issue where ApproxVAE models would show up in the VAE folder
+- Fixed [#878](https://github.com/LykosAI/StabilityMatrix/issues/878) - Checkpoints tab will no longer try to browse directories it can't access
+- Fixed crash when opening Settings page when refreshing CivitAI account status results in an error
+- Fixed [#814](https://github.com/LykosAI/StabilityMatrix/issues/814), [#875](https://github.com/LykosAI/StabilityMatrix/issues/875) - Error when installing RuinedFooocus
+- LORAs are now sorted by model name properly in the Extra Networks dropdown
+- (macOS) Fixed OAuth connection prompts in Account Settings not automatically updating status after connection. Custom URL schemes are now also supported on macOS builds.
+### Supporters
+#### Visionaries
+- A heartfelt thank you to our Visionary-tier patron, **Waterclouds**! We greatly appreciate your continued support!
+#### Pioneers
+- A special shoutout to our Pioneer-tier patrons: **tankfox**, **tanangular**, **Mr. Unknown**, and **Szir777**! Your unwavering support means a great deal!
+
+## v2.12.0-pre.3
+### Added
+- Added Python dependencies override table to package installation options, where the default pip packages may be overriden for a package's install and updates. This can be changed later or added to existing packages through `Package Menu > Python Dependencies Override`
+- Added optional anonymous usage reporting for gauging popularity of package installs and features. You will be asked whether you want to enable this feature on launch, and can change your choice at any time in `Settings > System > Analytics`
+- Added Korean translations thanks to maakcode!
+### Changed
+- Show better error message for early access model downloads
+- Updated torch version for a1111 on mac
+- Checkpoints tab now shows "image hidden" for images that are hidden by the NSFW filter
+- Updated translations for Turkish and Russian
+### Fixed
+- Fixed issue where some Inference-generated images would be saved with the bottom missing
+- Fixed CivitAI Browser page scroll refresh not ordering models correctly
+- Fixed missing fbgemm.dll errors when using latest torch with certain packages
+- Fixed issue where ApproxVAE models would show up in the VAE folder
+- Fixed [#878](https://github.com/LykosAI/StabilityMatrix/issues/878) - Checkpoints tab will no longer try to browse directories it can't access
+- Fixed crash when opening Settings page when refreshing CivitAI account status results in an error
+### Supporters
+#### Visionaries
+- A huge thank you to our Visionary-tier Patreon supporter, **Waterclouds**! We appreciate your continued support, and are grateful to have you on this journey with us!
+
+## v2.12.0-pre.2
+### Added
+- Added "Show NSFW Images" toggle to the Checkpoints page
+- Added "Model Loader" option to Inference, for loading UNet/GGUF/NF4 models (e.g. Flux)
+- Added type-to-search for the Inference model selectors. Start typing while the dropdown is open to navigate the list.
+- Added "Sign in with Google" option for connecting your Lykos Account on the Account Settings page
+### Changed
+- Updated Brazilian Portuguese translations thanks to thiagojramos
+- Merged the "Flux Text to Image" workflow back into the main Text to Image workflow
+### Fixed
+- Fixed CivitAI Model Browser sometimes incorrectly showing "No models found" before toggling "Show NSFW" or "Hide Installed" filters
+- Fixed Automatic1111 & related packages not including the gradio-allowed-path argument for the shared output folder
+- Fixed SwarmUI settings being overwritten on launch
+- Fixed Forge output folder links pointing to the incorrect folder
+- LORAs are now sorted by model name properly in the Extra Networks dropdown
+- Fixed errors when downloading models with invalid characters in the file name
+
+## v2.12.0-pre.1
+### Added
+- Added "Hide Installed Models" toggle to the CivitAI Model Browser
+### Changed
+- ComfyUI will no longer be pinned to torch 2.1.2 for nvidia users on Windows
+- Model browser download progress no longer covers the entire card for the entire duration of the download
+- Updated torch index to `rocm6.0` for AMD users of ComfyUI
+- (Internal) Updated to Avalonia 11.1.2
+- OAuth-type connection errors in Account Settings now show a more detailed error message
+### Fixed
+- Fixed Inference not connecting with "Could not connect to backend - JSON value could not be converted" error with API changes from newer ComfyUI versions
+- (macOS) Fixed OAuth connection prompts in Account Settings not automatically updating status after connection. Custom URL schemes are now also supported on macOS builds.
+
+## v2.12.0-dev.3
+### Added
+- Added Settings option "Console: History Size" to adjust the number of lines stored in the console history when running packages. Defaults to 9001 lines.
+#### Inference
+- Added new project type, "Flux Text to Image", a Flux-native workflow for text-to-image projects
+- Added support for the FP8 version of Flux in the regular Text to Image and Image to Image workflows via the "Use Flux Guidance" Sampler Addon
+#### Model Browser
+- Added AuraFlow & Flux base model types to the CivitAI model browser
+- Added CLIP/Text Encoders section to HuggingFace model browser
+#### Checkpoint Manager
+- Added new Metadata Editor (accessible via the right-click menu), allowing you to create or edit metadata for models 
+- Added "New Directory" and "Delete" options to the context menu of the tree view.
+- Added new toggle for drag & drop - when enabled, all selected models will now move together with the dragged model
+- Added "File Size" sorting option
+- Added "Hide Empty Categories" toggle
+- Added "Select All" button to the InfoBar (shown when at least one model is selected)
+- Added "unet" shared model folder for ComfyUI
+### Changed
+- Optimized image loading across the app, with loading speed now up to 4x faster for local images, and up to 17x faster for remote images
+- Image loading in the Outputs page now uses native memory management for ~2x less peak memory usage, and will release memory more quickly when switching away from the Outputs page or scrolling images out of view
+- Improved animation fluidity of image rendering while scrolling quickly across large collections (e.g. Outputs, Model Browser)
+- The "Download Failed" message for model downloads is now persistent until dismissed
+- Separated the Generate button from the prompt control in Inference so it can be moved like other controls
+### Fixed
+- Fixed "The version of the native libSkiaSharp library (88.1) is incompatible with this version of SkiaSharp." error for Linux users
+- Fixed download links for IPAdapters in the HuggingFace model browser
+- Fixed potential memory leak of transient controls (Inference Prompt and Output Image Viewer) not being garbage collected due to event subscriptions
+- Fixed Batch Count seeds not being recorded properly in Inference projects and image metadata
+### Supporters
+#### Visionaries
+- A heartfelt thank you to our Visionary-tier Patreon supporter, **Scopp Mcdee**! We truly appreciate your continued support!
+
+## v2.12.0-dev.2
+### Added
+- Added Face Detailer module to Inference
+- Added ultralytics models to HuggingFace model browser
+- Added DoRA category to CivitAI model browser
+- Added macOS support for Fooocus & related forks
+- (Windows, Linux) Added Vulkan rendering support using launch argument `--vulkan`. (On Windows, the default WinUI composition renderer is likely still preferrable. Linux users are encouraged to try the new renderer to see if it improves performance and responsiveness.)
+### Changed
+- (Internal) Updated Avalonia to 11.1.1 - Includes major rendering and performance optimizations, animation refinements, improved IME / text selection, and improvements for window sizing / z-order / multi-monitor DPI scaling. ([avaloniaui.net/blog/avalonia-11-1-a-quantum-leap-in-cross-platform-ui-development](https://avaloniaui.net/blog/avalonia-11-1-a-quantum-leap-in-cross-platform-ui-development))
+- (Internal) Updated SkiaSharp (Rendering Backend) to 3.0.0-preview.4.1, potentially fixes issues with window rendering artifacts on some machines.
+- (Internal) Updated other dependencies for security and bug fixes.
+### Fixed
+- Fixed some ScrollViewers changing scroll position when focus changes
+- Fixed [#782](https://github.com/LykosAI/StabilityMatrix/issues/782) - conflict error when launching new versions of Forge
+- Fixed incorrect torch versions being installed for InvokeAI
+### Supporters
+#### Visionaries
+- A huge thank you goes out to our esteemed Visionary-tier Patreon backers: **Scopp Mcdee**, **Waterclouds**, and **Akiro_Senkai**. Your kind support means the world!
+
+## v2.12.0-dev.1
+### Added
+- Added new package: [Fooocus - mashb1t's 1-Up Edition](https://github.com/mashb1t/Fooocus) by mashb1t
+- Added new package: [Stable Diffusion WebUI reForge](https://github.com/Panchovix/stable-diffusion-webui-reForge/) by Panchovix
+- Image viewer context menus now have 2 options: `Copy (Ctrl+C)` which now always copies the image as a file, and `Copy as Bitmap (Shift+Ctrl+C)` (Available on Windows) which copies to the clipboard as native bitmap. This changes the previous single `Copy` button behavior that would first attempt a native bitmap copy on Windows when available, and fall back to a file copy if not.
+- Added "Change Version" option to the package card overflow menu, allowing you to downgrade or upgrade a package to a specific version or commit
+- Added "Disable Update Check" option to the package card overflow menu, allowing you to disable update checks for a specific package
+- Added "Run Command" option in Settings for running a command with the embedded Python or Git executables
+- Added Intel OneAPI XPU backend (IPEX) option for SD.Next
+### Supporters
+#### Visionaries
+- Shoutout to our Visionary-tier Patreon supporters, **Scopp Mcdee**, **Waterclouds**, and our newest Visionary, **Akiro_Senkai**! Many thanks for your generous support!
+
+## v2.11.8
+### Added
+- Added Flux & AuraFlow types to CivitAI Browser
+- Added unet folder links for ComfyUI thanks to jeremydk
+- Added CLIP folder links for Forge
+### Changed
+- Updated Brazilian Portuguese translations thanks to thiagojramos
+### Fixed
+- Fixed [#840](https://github.com/LykosAI/StabilityMatrix/issues/840) - CivitAI model browser not loading search results
+- Fixed SwarmUI settings being overwritten on launch
+- Fixed [#832](https://github.com/LykosAI/StabilityMatrix/issues/832) [#847](https://github.com/LykosAI/StabilityMatrix/issues/847) - Forge output folder links pointing to the incorrect folder
+- Fixed errors when downloading models with invalid characters in the file name
+- Fixed error when installing RuinedFooocus on nvidia GPUs
+### Supporters
+#### Pioneers
+- A big shoutout to our Pioneer-tier patrons: **tankfox**, **tanangular**, **Mr. Unknown**, and **Szir777**! We deeply appreciate your ongoing support!
+
+## v2.11.7
+### Changed
+- Forge will use the recommended pytorch version 2.3.1 the next time it is updated
+- InvokeAI users with AMD GPUs on Linux will be upgraded to the rocm5.6 version of pytorch the next time it is updated
+### Fixed
+- Fixed Inference not connecting with "Could not connect to backend - JSON value could not be converted" error with API changes from newer ComfyUI versions
+### Supporters
+#### Pioneers
+- Shoutout to our Pioneer-tier supporters on Patreon: **tankfox**, **tanangular**, **Mr. Unknown**, and **Szir777**! Thanks for all of your continued support!
+
 ## v2.11.6
 ### Fixed
 - Fixed incorrect IPAdapter download links in the HuggingFace model browser

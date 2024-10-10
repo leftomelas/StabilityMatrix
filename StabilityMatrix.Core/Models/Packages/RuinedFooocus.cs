@@ -32,88 +32,57 @@ public class RuinedFooocus(
     public override SharedFolderMethod RecommendedSharedFolderMethod => SharedFolderMethod.Symlink;
 
     public override List<LaunchOptionDefinition> LaunchOptions =>
-        new()
-        {
-            new LaunchOptionDefinition
-            {
-                Name = "Preset",
-                Type = LaunchOptionType.Bool,
-                Options = { "--preset anime", "--preset realistic" }
-            },
-            new LaunchOptionDefinition
+        [
+            new()
             {
                 Name = "Port",
                 Type = LaunchOptionType.String,
                 Description = "Sets the listen port",
                 Options = { "--port" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Share",
                 Type = LaunchOptionType.Bool,
                 Description = "Set whether to share on Gradio",
                 Options = { "--share" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Listen",
                 Type = LaunchOptionType.String,
                 Description = "Set the listen interface",
                 Options = { "--listen" }
             },
-            new LaunchOptionDefinition
+            new()
             {
-                Name = "Output Directory",
+                Name = "Auth",
                 Type = LaunchOptionType.String,
-                Description = "Override the output directory",
-                Options = { "--output-directory" }
+                Description = "Set credentials username/password",
+                Options = { "--auth" }
             },
             new()
             {
-                Name = "VRAM",
+                Name = "No Browser",
                 Type = LaunchOptionType.Bool,
-                InitialValue = HardwareHelper.IterGpuInfo().Select(gpu => gpu.MemoryLevel).Max() switch
-                {
-                    MemoryLevel.Low => "--lowvram",
-                    MemoryLevel.Medium => "--normalvram",
-                    _ => null
-                },
-                Options = { "--highvram", "--normalvram", "--lowvram", "--novram" }
-            },
-            new LaunchOptionDefinition
-            {
-                Name = "Use DirectML",
-                Type = LaunchOptionType.Bool,
-                Description = "Use pytorch with DirectML support",
-                InitialValue = HardwareHelper.PreferDirectML(),
-                Options = { "--directml" }
-            },
-            new LaunchOptionDefinition
-            {
-                Name = "Disable Xformers",
-                Type = LaunchOptionType.Bool,
-                InitialValue = !HardwareHelper.HasNvidiaGpu(),
-                Options = { "--disable-xformers" }
-            },
-            new LaunchOptionDefinition
-            {
-                Name = "Auto-Launch",
-                Type = LaunchOptionType.Bool,
-                Options = { "--auto-launch" }
+                Description = "Do not launch in browser",
+                Options = { "--nobrowser" }
             },
             LaunchOptionDefinition.Extras
-        };
+        ];
 
     public override async Task InstallPackage(
         string installLocation,
-        TorchVersion torchVersion,
-        SharedFolderMethod selectedSharedFolderMethod,
-        DownloadPackageVersionOptions versionOptions,
+        InstalledPackage installedPackage,
+        InstallPackageOptions options,
         IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
-        if (torchVersion == TorchVersion.Cuda)
+        var torchVersion = options.PythonOptions.TorchIndex ?? GetRecommendedTorchVersion();
+
+        if (torchVersion == TorchIndex.Cuda)
         {
             await using var venvRunner = await SetupVenvPure(installLocation, forceRecreate: true)
                 .ConfigureAwait(false);
@@ -121,31 +90,29 @@ public class RuinedFooocus(
             progress?.Report(new ProgressReport(-1f, "Installing requirements...", isIndeterminate: true));
 
             var requirements = new FilePath(installLocation, "requirements_versions.txt");
+            var pipArgs = new PipInstallArgs()
+                .WithTorchExtraIndex("cu121")
+                .WithParsedFromRequirementsTxt(
+                    await requirements.ReadAllTextAsync(cancellationToken).ConfigureAwait(false),
+                    "--extra-index-url.*|--index-url.*"
+                );
 
-            await venvRunner
-                .PipInstall(
-                    new PipInstallArgs()
-                        .WithTorch("==2.1.2")
-                        .WithTorchVision("==0.16.2")
-                        .WithXFormers("==0.0.23.post1")
-                        .WithTorchExtraIndex("cu121")
-                        .WithParsedFromRequirementsTxt(
-                            await requirements.ReadAllTextAsync().ConfigureAwait(false),
-                            excludePattern: "torch"
-                        ),
-                    onConsoleOutput
-                )
-                .ConfigureAwait(false);
+            if (installedPackage.PipOverrides != null)
+            {
+                pipArgs = pipArgs.WithUserOverrides(installedPackage.PipOverrides);
+            }
+
+            await venvRunner.PipInstall(pipArgs, onConsoleOutput).ConfigureAwait(false);
         }
         else
         {
             await base.InstallPackage(
                 installLocation,
-                torchVersion,
-                selectedSharedFolderMethod,
-                versionOptions,
+                installedPackage,
+                options,
                 progress,
-                onConsoleOutput
+                onConsoleOutput,
+                cancellationToken
             )
                 .ConfigureAwait(false);
         }

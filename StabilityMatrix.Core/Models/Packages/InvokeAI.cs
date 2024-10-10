@@ -125,14 +125,14 @@ public class InvokeAI : BaseGitPackage
             LaunchOptionDefinition.Extras
         ];
 
-    public override IEnumerable<TorchVersion> AvailableTorchVersions =>
-        new[] { TorchVersion.Cpu, TorchVersion.Cuda, TorchVersion.Rocm, TorchVersion.Mps };
+    public override IEnumerable<TorchIndex> AvailableTorchIndices =>
+        new[] { TorchIndex.Cpu, TorchIndex.Cuda, TorchIndex.Rocm, TorchIndex.Mps };
 
-    public override TorchVersion GetRecommendedTorchVersion()
+    public override TorchIndex GetRecommendedTorchVersion()
     {
         if (Compat.IsMacOS && Compat.IsArm)
         {
-            return TorchVersion.Mps;
+            return TorchIndex.Mps;
         }
 
         return base.GetRecommendedTorchVersion();
@@ -148,11 +148,11 @@ public class InvokeAI : BaseGitPackage
 
     public override async Task InstallPackage(
         string installLocation,
-        TorchVersion torchVersion,
-        SharedFolderMethod selectedSharedFolderMethod,
-        DownloadPackageVersionOptions versionOptions,
+        InstalledPackage installedPackage,
+        InstallPackageOptions options,
         IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
         // Setup venv
@@ -176,61 +176,49 @@ public class InvokeAI : BaseGitPackage
 
         var pipCommandArgs = "-e . --use-pep517 --extra-index-url https://download.pytorch.org/whl/cpu";
 
+        var torchVersion = options.PythonOptions.TorchIndex ?? GetRecommendedTorchVersion();
+        var torchInstallArgs = new PipInstallArgs();
+
         switch (torchVersion)
         {
-            // If has Nvidia Gpu, install CUDA version
-            case TorchVersion.Cuda:
-                progress?.Report(
-                    new ProgressReport(-1f, "Installing PyTorch for CUDA", isIndeterminate: true)
-                );
-
-                var args = new List<Argument>();
-                if (exists)
-                {
-                    var pipPackages = await venvRunner.PipList().ConfigureAwait(false);
-                    var hasCuda121 = pipPackages.Any(p => p.Name == "torch" && p.Version.Contains("cu121"));
-                    if (!hasCuda121)
-                    {
-                        args.Add("--upgrade");
-                        args.Add("--force-reinstall");
-                    }
-                }
-
-                await venvRunner
-                    .PipInstall(
-                        new PipInstallArgs(args.Any() ? args.ToArray() : Array.Empty<Argument>())
-                            .WithTorch("==2.2.2")
-                            .WithTorchVision("==0.17.2")
-                            .WithXFormers("==0.0.25.post1")
-                            .WithTorchExtraIndex("cu121"),
-                        onConsoleOutput
-                    )
-                    .ConfigureAwait(false);
+            case TorchIndex.Cuda:
+                torchInstallArgs = torchInstallArgs
+                    .WithTorch("==2.4.1")
+                    .WithTorchVision("==0.19.1")
+                    .WithXFormers("==0.0.28.post1")
+                    .WithTorchExtraIndex("cu124");
 
                 Logger.Info("Starting InvokeAI install (CUDA)...");
                 pipCommandArgs =
-                    "-e .[xformers] --use-pep517 --extra-index-url https://download.pytorch.org/whl/cu121";
+                    "-e .[xformers] --use-pep517 --extra-index-url https://download.pytorch.org/whl/cu124";
                 break;
-            // For AMD, Install ROCm version
-            case TorchVersion.Rocm:
-                await venvRunner
-                    .PipInstall(
-                        new PipInstallArgs()
-                            .WithTorch("==2.0.1")
-                            .WithTorchVision()
-                            .WithExtraIndex("rocm5.4.2"),
-                        onConsoleOutput
-                    )
-                    .ConfigureAwait(false);
+
+            case TorchIndex.Rocm:
+                torchInstallArgs = torchInstallArgs
+                    .WithTorch("==2.2.2")
+                    .WithTorchVision("==0.17.2")
+                    .WithExtraIndex("rocm5.6");
+
                 Logger.Info("Starting InvokeAI install (ROCm)...");
                 pipCommandArgs =
-                    "-e . --use-pep517 --extra-index-url https://download.pytorch.org/whl/rocm5.4.2";
+                    "-e . --use-pep517 --extra-index-url https://download.pytorch.org/whl/rocm5.6";
                 break;
-            case TorchVersion.Mps:
+
+            case TorchIndex.Mps:
                 // For Apple silicon, use MPS
                 Logger.Info("Starting InvokeAI install (MPS)...");
                 pipCommandArgs = "-e . --use-pep517";
                 break;
+        }
+
+        if (installedPackage.PipOverrides != null)
+        {
+            torchInstallArgs = torchInstallArgs.WithUserOverrides(installedPackage.PipOverrides);
+        }
+
+        if (torchInstallArgs.Arguments.Count > 0)
+        {
+            await venvRunner.PipInstall(torchInstallArgs, onConsoleOutput).ConfigureAwait(false);
         }
 
         await venvRunner
@@ -298,11 +286,19 @@ public class InvokeAI : BaseGitPackage
     }
 
     public override Task RunPackage(
-        string installedPackagePath,
-        string command,
-        string arguments,
-        Action<ProcessOutput>? onConsoleOutput
-    ) => RunInvokeCommand(installedPackagePath, command, arguments, true, onConsoleOutput);
+        string installLocation,
+        InstalledPackage installedPackage,
+        RunPackageOptions options,
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunInvokeCommand(
+            installLocation,
+            options.Command ?? LaunchCommand,
+            options.Arguments,
+            true,
+            onConsoleOutput
+        );
 
     private async Task RunInvokeCommand(
         string installedPackagePath,
@@ -352,21 +348,6 @@ public class InvokeAI : BaseGitPackage
         // above the minimum in invokeai.frontend.install.widgets
 
         var code = $"""
-                    try:
-                        import os
-                        import shutil
-                        from invokeai.frontend.install import widgets
-                        
-                        _min_cols = widgets.MIN_COLS
-                        _min_lines = widgets.MIN_LINES
-                        
-                        static_size_fn = lambda: os.terminal_size((_min_cols, _min_lines))
-                        shutil.get_terminal_size = static_size_fn
-                        widgets.get_terminal_size = static_size_fn
-                    except Exception as e:
-                        import warnings
-                        warnings.warn('Could not patch terminal size for InvokeAI' + str(e))
-                        
                     import sys
                     from {split[0]} import {split[1]}
                     sys.exit({split[1]}())

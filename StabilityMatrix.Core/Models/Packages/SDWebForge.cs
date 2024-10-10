@@ -37,94 +37,82 @@ public class SDWebForge(
     public override string MainBranch => "main";
     public override bool ShouldIgnoreReleases => true;
     public override IPackageExtensionManager ExtensionManager => null;
-    public override string OutputFolderName => "output";
     public override PackageDifficulty InstallerSortOrder => PackageDifficulty.ReallyRecommended;
-    public override Dictionary<SharedOutputType, IReadOnlyList<string>>? SharedOutputFolders =>
-        new()
-        {
-            [SharedOutputType.Extras] = new[] { "output/extras-images" },
-            [SharedOutputType.Saved] = new[] { "log/images" },
-            [SharedOutputType.Img2Img] = new[] { "output/img2img-images" },
-            [SharedOutputType.Text2Img] = new[] { "output/txt2img-images" },
-            [SharedOutputType.Img2ImgGrids] = new[] { "output/img2img-grids" },
-            [SharedOutputType.Text2ImgGrids] = new[] { "output/txt2img-grids" },
-            [SharedOutputType.SVD] = new[] { "output/svd" }
-        };
 
     public override List<LaunchOptionDefinition> LaunchOptions =>
         [
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Host",
                 Type = LaunchOptionType.String,
                 DefaultValue = "localhost",
                 Options = ["--server-name"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Port",
                 Type = LaunchOptionType.String,
                 DefaultValue = "7860",
                 Options = ["--port"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Share",
                 Type = LaunchOptionType.Bool,
                 Description = "Set whether to share on Gradio",
                 Options = { "--share" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Pin Shared Memory",
                 Type = LaunchOptionType.Bool,
                 Options = { "--pin-shared-memory" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "CUDA Malloc",
                 Type = LaunchOptionType.Bool,
                 Options = { "--cuda-malloc" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "CUDA Stream",
                 Type = LaunchOptionType.Bool,
                 Options = { "--cuda-stream" }
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Always Offload from VRAM",
                 Type = LaunchOptionType.Bool,
                 Options = ["--always-offload-from-vram"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Always GPU",
                 Type = LaunchOptionType.Bool,
                 Options = ["--always-gpu"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Always CPU",
                 Type = LaunchOptionType.Bool,
                 Options = ["--always-cpu"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Use DirectML",
                 Type = LaunchOptionType.Bool,
                 InitialValue = HardwareHelper.PreferDirectML(),
                 Options = ["--directml"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Skip Torch CUDA Test",
                 Type = LaunchOptionType.Bool,
                 InitialValue = Compat.IsMacOS,
                 Options = ["--skip-torch-cuda-test"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "No half-precision VAE",
                 Type = LaunchOptionType.Bool,
@@ -134,23 +122,16 @@ public class SDWebForge(
             LaunchOptionDefinition.Extras
         ];
 
-    public override IEnumerable<TorchVersion> AvailableTorchVersions =>
-        new[]
-        {
-            TorchVersion.Cpu,
-            TorchVersion.Cuda,
-            TorchVersion.DirectMl,
-            TorchVersion.Rocm,
-            TorchVersion.Mps
-        };
+    public override IEnumerable<TorchIndex> AvailableTorchIndices =>
+        [TorchIndex.Cpu, TorchIndex.Cuda, TorchIndex.DirectMl, TorchIndex.Rocm, TorchIndex.Mps];
 
     public override async Task InstallPackage(
         string installLocation,
-        TorchVersion torchVersion,
-        SharedFolderMethod selectedSharedFolderMethod,
-        DownloadPackageVersionOptions versionOptions,
+        InstalledPackage installedPackage,
+        InstallPackageOptions options,
         IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
         progress?.Report(new ProgressReport(-1f, "Setting up venv", isIndeterminate: true));
@@ -162,31 +143,40 @@ public class SDWebForge(
         progress?.Report(new ProgressReport(-1f, "Installing requirements...", isIndeterminate: true));
 
         var requirements = new FilePath(installLocation, "requirements_versions.txt");
-        var requirementsContent = await requirements.ReadAllTextAsync().ConfigureAwait(false);
+        var requirementsContent = await requirements
+            .ReadAllTextAsync(cancellationToken)
+            .ConfigureAwait(false);
 
         var pipArgs = new PipInstallArgs("setuptools==69.5.1");
-        if (torchVersion is TorchVersion.DirectMl)
+
+        var torchVersion = options.PythonOptions.TorchIndex ?? GetRecommendedTorchVersion();
+        if (torchVersion is TorchIndex.DirectMl)
         {
             pipArgs = pipArgs.WithTorchDirectML();
         }
         else
         {
             pipArgs = pipArgs
-                .WithTorch("==2.1.2")
-                .WithTorchVision("==0.16.2")
+                .WithTorch("==2.3.1")
+                .WithTorchVision("==0.18.1")
                 .WithTorchExtraIndex(
                     torchVersion switch
                     {
-                        TorchVersion.Cpu => "cpu",
-                        TorchVersion.Cuda => "cu121",
-                        TorchVersion.Rocm => "rocm5.6",
-                        TorchVersion.Mps => "cpu",
+                        TorchIndex.Cpu => "cpu",
+                        TorchIndex.Cuda => "cu121",
+                        TorchIndex.Rocm => "rocm5.6",
+                        TorchIndex.Mps => "cpu",
                         _ => throw new ArgumentOutOfRangeException(nameof(torchVersion), torchVersion, null)
                     }
                 );
         }
 
         pipArgs = pipArgs.WithParsedFromRequirementsTxt(requirementsContent, excludePattern: "torch");
+
+        if (installedPackage.PipOverrides != null)
+        {
+            pipArgs = pipArgs.WithUserOverrides(installedPackage.PipOverrides);
+        }
 
         await venvRunner.PipInstall(pipArgs, onConsoleOutput).ConfigureAwait(false);
         progress?.Report(new ProgressReport(1f, "Install complete", isIndeterminate: false));

@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using NLog;
 using StabilityMatrix.Core.Attributes;
+using StabilityMatrix.Core.Extensions;
 using StabilityMatrix.Core.Helper;
 using StabilityMatrix.Core.Helper.Cache;
 using StabilityMatrix.Core.Helper.HardwareInfo;
@@ -46,40 +47,42 @@ public class A3WebUI(
     public override Dictionary<SharedFolderType, IReadOnlyList<string>> SharedFolders =>
         new()
         {
-            [SharedFolderType.StableDiffusion] = new[] { "models/Stable-diffusion" },
-            [SharedFolderType.ESRGAN] = new[] { "models/ESRGAN" },
-            [SharedFolderType.GFPGAN] = new[] { "models/GFPGAN" },
-            [SharedFolderType.RealESRGAN] = new[] { "models/RealESRGAN" },
-            [SharedFolderType.SwinIR] = new[] { "models/SwinIR" },
-            [SharedFolderType.Lora] = new[] { "models/Lora" },
-            [SharedFolderType.LyCORIS] = new[] { "models/LyCORIS" },
-            [SharedFolderType.ApproxVAE] = new[] { "models/VAE-approx" },
-            [SharedFolderType.VAE] = new[] { "models/VAE" },
-            [SharedFolderType.DeepDanbooru] = new[] { "models/deepbooru" },
-            [SharedFolderType.Karlo] = new[] { "models/karlo" },
-            [SharedFolderType.TextualInversion] = new[] { "embeddings" },
-            [SharedFolderType.Hypernetwork] = new[] { "models/hypernetworks" },
-            [SharedFolderType.ControlNet] = new[] { "models/controlnet/ControlNet" },
-            [SharedFolderType.Codeformer] = new[] { "models/Codeformer" },
-            [SharedFolderType.LDSR] = new[] { "models/LDSR" },
-            [SharedFolderType.AfterDetailer] = new[] { "models/adetailer" },
-            [SharedFolderType.T2IAdapter] = new[] { "models/controlnet/T2IAdapter" },
-            [SharedFolderType.IpAdapter] = new[] { "models/controlnet/IpAdapter" },
-            [SharedFolderType.InvokeIpAdapters15] = new[] { "models/controlnet/DiffusersIpAdapters" },
-            [SharedFolderType.InvokeIpAdaptersXl] = new[] { "models/controlnet/DiffusersIpAdaptersXL" },
-            [SharedFolderType.SVD] = new[] { "models/svd" }
+            [SharedFolderType.StableDiffusion] = ["models/Stable-diffusion/sd"],
+            [SharedFolderType.ESRGAN] = ["models/ESRGAN"],
+            [SharedFolderType.GFPGAN] = ["models/GFPGAN"],
+            [SharedFolderType.RealESRGAN] = ["models/RealESRGAN"],
+            [SharedFolderType.SwinIR] = ["models/SwinIR"],
+            [SharedFolderType.Lora] = ["models/Lora"],
+            [SharedFolderType.LyCORIS] = ["models/LyCORIS"],
+            [SharedFolderType.ApproxVAE] = ["models/VAE-approx"],
+            [SharedFolderType.VAE] = ["models/VAE"],
+            [SharedFolderType.DeepDanbooru] = ["models/deepbooru"],
+            [SharedFolderType.Karlo] = ["models/karlo"],
+            [SharedFolderType.TextualInversion] = ["embeddings"],
+            [SharedFolderType.Hypernetwork] = ["models/hypernetworks"],
+            [SharedFolderType.ControlNet] = ["models/controlnet/ControlNet"],
+            [SharedFolderType.Codeformer] = ["models/Codeformer"],
+            [SharedFolderType.LDSR] = ["models/LDSR"],
+            [SharedFolderType.AfterDetailer] = ["models/adetailer"],
+            [SharedFolderType.T2IAdapter] = ["models/controlnet/T2IAdapter"],
+            [SharedFolderType.IpAdapter] = ["models/controlnet/IpAdapter"],
+            [SharedFolderType.InvokeIpAdapters15] = ["models/controlnet/DiffusersIpAdapters"],
+            [SharedFolderType.InvokeIpAdaptersXl] = ["models/controlnet/DiffusersIpAdaptersXL"],
+            [SharedFolderType.SVD] = ["models/svd"],
+            [SharedFolderType.CLIP] = ["models/text_encoder"],
+            [SharedFolderType.Unet] = ["models/Stable-diffusion/unet"],
         };
 
     public override Dictionary<SharedOutputType, IReadOnlyList<string>>? SharedOutputFolders =>
         new()
         {
-            [SharedOutputType.Extras] = new[] { "outputs/extras-images" },
-            [SharedOutputType.Saved] = new[] { "log/images" },
-            [SharedOutputType.Img2Img] = new[] { "outputs/img2img-images" },
-            [SharedOutputType.Text2Img] = new[] { "outputs/txt2img-images" },
-            [SharedOutputType.Img2ImgGrids] = new[] { "outputs/img2img-grids" },
-            [SharedOutputType.Text2ImgGrids] = new[] { "outputs/txt2img-grids" },
-            [SharedOutputType.SVD] = new[] { "outputs/svd" }
+            [SharedOutputType.Extras] = ["outputs/extras-images"],
+            [SharedOutputType.Saved] = ["log/images"],
+            [SharedOutputType.Img2Img] = ["outputs/img2img-images"],
+            [SharedOutputType.Text2Img] = ["outputs/txt2img-images"],
+            [SharedOutputType.Img2ImgGrids] = ["outputs/img2img-grids"],
+            [SharedOutputType.Text2ImgGrids] = ["outputs/txt2img-grids"],
+            [SharedOutputType.SVD] = ["outputs/svd"]
         };
 
     [SuppressMessage("ReSharper", "ArrangeObjectCreationWhenTypeNotEvident")]
@@ -99,7 +102,7 @@ public class A3WebUI(
                 DefaultValue = "7860",
                 Options = ["--port"]
             },
-            new LaunchOptionDefinition
+            new()
             {
                 Name = "Share",
                 Type = LaunchOptionType.Bool,
@@ -179,10 +182,10 @@ public class A3WebUI(
         ];
 
     public override IEnumerable<SharedFolderMethod> AvailableSharedFolderMethods =>
-        new[] { SharedFolderMethod.Symlink, SharedFolderMethod.None };
+        [SharedFolderMethod.Symlink, SharedFolderMethod.None];
 
-    public override IEnumerable<TorchVersion> AvailableTorchVersions =>
-        new[] { TorchVersion.Cpu, TorchVersion.Cuda, TorchVersion.Rocm, TorchVersion.Mps };
+    public override IEnumerable<TorchIndex> AvailableTorchIndices =>
+        [TorchIndex.Cpu, TorchIndex.Cuda, TorchIndex.Rocm, TorchIndex.Mps];
 
     public override string MainBranch => "master";
 
@@ -192,52 +195,61 @@ public class A3WebUI(
 
     public override async Task InstallPackage(
         string installLocation,
-        TorchVersion torchVersion,
-        SharedFolderMethod selectedSharedFolderMethod,
-        DownloadPackageVersionOptions versionOptions,
+        InstalledPackage installedPackage,
+        InstallPackageOptions options,
         IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
         progress?.Report(new ProgressReport(-1f, "Setting up venv", isIndeterminate: true));
 
-        var venvPath = Path.Combine(installLocation, "venv");
-        var exists = Directory.Exists(venvPath);
-
         await using var venvRunner = await SetupVenvPure(installLocation).ConfigureAwait(false);
-
         await venvRunner.PipInstall("--upgrade pip wheel", onConsoleOutput).ConfigureAwait(false);
 
         progress?.Report(new ProgressReport(-1f, "Installing requirements...", isIndeterminate: true));
 
-        var requirements = new FilePath(installLocation, "requirements_versions.txt");
-        var pipArgs = new PipInstallArgs()
-            .WithTorch("==2.1.2")
-            .WithTorchVision("==0.16.2")
-            .WithTorchExtraIndex(
-                torchVersion switch
-                {
-                    TorchVersion.Cpu => "cpu",
-                    TorchVersion.Cuda => "cu121",
-                    TorchVersion.Rocm => "rocm5.6",
-                    TorchVersion.Mps => "cpu",
-                    _ => throw new ArgumentOutOfRangeException(nameof(torchVersion), torchVersion, null)
-                }
-            )
-            .WithParsedFromRequirementsTxt(
-                await requirements.ReadAllTextAsync().ConfigureAwait(false),
-                excludePattern: "torch"
-            );
+        var torchVersion = options.PythonOptions.TorchIndex ?? GetRecommendedTorchVersion();
 
-        if (torchVersion == TorchVersion.Cuda)
+        var requirements = new FilePath(installLocation, "requirements_versions.txt");
+        var pipArgs = options.PythonOptions.TorchIndex switch
+        {
+            TorchIndex.Mps
+                => new PipInstallArgs()
+                    .WithTorch("==2.3.1")
+                    .WithTorchVision("==2.3.1")
+                    .WithParsedFromRequirementsTxt(
+                        await requirements.ReadAllTextAsync(cancellationToken).ConfigureAwait(false),
+                        excludePattern: "torch"
+                    ),
+            _
+                => new PipInstallArgs()
+                    .WithTorch("==2.1.2")
+                    .WithTorchVision("==0.16.2")
+                    .WithTorchExtraIndex(
+                        options.PythonOptions.TorchIndex switch
+                        {
+                            TorchIndex.Cpu => "cpu",
+                            TorchIndex.Cuda => "cu121",
+                            TorchIndex.Rocm => "rocm5.6",
+                            TorchIndex.Mps => "cpu",
+                            _ => throw new NotSupportedException($"Unsupported torch version: {torchVersion}")
+                        }
+                    )
+                    .WithParsedFromRequirementsTxt(
+                        await requirements.ReadAllTextAsync(cancellationToken).ConfigureAwait(false),
+                        excludePattern: "torch"
+                    )
+        };
+
+        if (torchVersion == TorchIndex.Cuda)
         {
             pipArgs = pipArgs.WithXFormers("==0.0.23.post1");
         }
 
-        if (exists)
+        if (installedPackage.PipOverrides != null)
         {
-            pipArgs = pipArgs.AddArg("--upgrade");
-            pipArgs = pipArgs.AddArg("--force-reinstall");
+            pipArgs = pipArgs.WithUserOverrides(installedPackage.PipOverrides);
         }
 
         await venvRunner.PipInstall(pipArgs, onConsoleOutput).ConfigureAwait(false);
@@ -250,20 +262,22 @@ public class A3WebUI(
         if (!File.Exists(configPath))
         {
             var config = new JsonObject { { "show_progress_type", "TAESD" } };
-            await File.WriteAllTextAsync(configPath, config.ToString()).ConfigureAwait(false);
+            await File.WriteAllTextAsync(configPath, config.ToString(), cancellationToken)
+                .ConfigureAwait(false);
         }
 
         progress?.Report(new ProgressReport(1f, "Install complete", isIndeterminate: false));
     }
 
     public override async Task RunPackage(
-        string installedPackagePath,
-        string command,
-        string arguments,
-        Action<ProcessOutput>? onConsoleOutput
+        string installLocation,
+        InstalledPackage installedPackage,
+        RunPackageOptions options,
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
-        await SetupVenv(installedPackagePath).ConfigureAwait(false);
+        await SetupVenv(installLocation).ConfigureAwait(false);
 
         void HandleConsoleOutput(ProcessOutput s)
         {
@@ -281,15 +295,19 @@ public class A3WebUI(
             OnStartupComplete(WebUrl);
         }
 
-        var args = $"\"{Path.Combine(installedPackagePath, command)}\" {arguments}";
-
-        VenvRunner.RunDetached(args.TrimEnd(), HandleConsoleOutput, OnExit);
+        VenvRunner.RunDetached(
+            [
+                Path.Combine(installLocation, options.Command ?? LaunchCommand),
+                ..options.Arguments,
+                ..ExtraLaunchArguments
+            ],
+            HandleConsoleOutput,
+            OnExit
+        );
     }
 
-    public override string? ExtraLaunchArguments { get; set; } =
-        settingsManager.IsLibraryDirSet
-            ? $"--gradio-allowed-path \"{settingsManager.ImagesDirectory}\""
-            : string.Empty;
+    public override IReadOnlyList<string> ExtraLaunchArguments =>
+        settingsManager.IsLibraryDirSet ? ["--gradio-allowed-path", settingsManager.ImagesDirectory] : [];
 
     private class A3WebUiExtensionManager(A3WebUI package)
         : GitPackageExtensionManager(package.PrerequisiteHelper)

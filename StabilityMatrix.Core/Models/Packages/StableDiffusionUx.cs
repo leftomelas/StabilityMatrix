@@ -168,8 +168,8 @@ public class StableDiffusionUx(
     public override IEnumerable<SharedFolderMethod> AvailableSharedFolderMethods =>
         new[] { SharedFolderMethod.Symlink, SharedFolderMethod.None };
 
-    public override IEnumerable<TorchVersion> AvailableTorchVersions =>
-        new[] { TorchVersion.Cpu, TorchVersion.Cuda, TorchVersion.Rocm, TorchVersion.Mps };
+    public override IEnumerable<TorchIndex> AvailableTorchIndices =>
+        new[] { TorchIndex.Cpu, TorchIndex.Cuda, TorchIndex.Rocm, TorchIndex.Mps };
 
     public override string MainBranch => "master";
 
@@ -177,40 +177,45 @@ public class StableDiffusionUx(
 
     public override string OutputFolderName => "outputs";
 
+    public override IReadOnlyList<string> ExtraLaunchArguments =>
+        settingsManager.IsLibraryDirSet ? ["--gradio-allowed-path", settingsManager.ImagesDirectory] : [];
+
     public override async Task InstallPackage(
         string installLocation,
-        TorchVersion torchVersion,
-        SharedFolderMethod selectedSharedFolderMethod,
-        DownloadPackageVersionOptions versionOptions,
+        InstalledPackage installedPackage,
+        InstallPackageOptions options,
         IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
         progress?.Report(new ProgressReport(-1f, "Setting up venv", isIndeterminate: true));
 
         await using var venvRunner = await SetupVenvPure(installLocation).ConfigureAwait(false);
 
+        var torchVersion = options.PythonOptions.TorchIndex ?? GetRecommendedTorchVersion();
+        var pipArgs = new PipInstallArgs();
+
         switch (torchVersion)
         {
-            case TorchVersion.Cpu:
-                await InstallCpuTorch(venvRunner, progress, onConsoleOutput).ConfigureAwait(false);
+            case TorchIndex.Cpu:
+                pipArgs = pipArgs.WithTorch("==2.1.2").WithTorchVision("==0.16.2");
                 break;
-            case TorchVersion.Cuda:
-                await InstallCudaTorch(venvRunner, progress, onConsoleOutput).ConfigureAwait(false);
+            case TorchIndex.Cuda:
+                pipArgs = pipArgs
+                    .WithTorch("==2.1.2")
+                    .WithTorchVision("==0.16.2")
+                    .WithXFormers("==0.0.23post1")
+                    .WithTorchExtraIndex("cu121");
                 break;
-            case TorchVersion.Rocm:
-                await InstallRocmTorch(venvRunner, progress, onConsoleOutput).ConfigureAwait(false);
+            case TorchIndex.Rocm:
+                pipArgs = pipArgs
+                    .WithTorch("==2.0.1")
+                    .WithTorchVision("==0.15.2")
+                    .WithTorchExtraIndex("rocm5.4.2");
                 break;
-            case TorchVersion.Mps:
-                await venvRunner
-                    .PipInstall(
-                        new PipInstallArgs()
-                            .WithTorch("==2.1.2")
-                            .WithTorchVision()
-                            .WithTorchExtraIndex("cpu"),
-                        onConsoleOutput
-                    )
-                    .ConfigureAwait(false);
+            case TorchIndex.Mps:
+                pipArgs = pipArgs.WithTorch("==2.1.2").WithTorchVision("==0.16.2").WithTorchExtraIndex("cpu");
                 break;
         }
 
@@ -219,27 +224,30 @@ public class StableDiffusionUx(
         Logger.Info("Installing requirements_versions.txt");
 
         var requirements = new FilePath(installLocation, "requirements_versions.txt");
-        await venvRunner
-            .PipInstall(
-                new PipInstallArgs().WithParsedFromRequirementsTxt(
-                    await requirements.ReadAllTextAsync().ConfigureAwait(false),
-                    excludePattern: "torch"
-                ),
-                onConsoleOutput
-            )
-            .ConfigureAwait(false);
+        pipArgs = pipArgs.WithParsedFromRequirementsTxt(
+            await requirements.ReadAllTextAsync(cancellationToken).ConfigureAwait(false),
+            excludePattern: "torch"
+        );
+
+        if (installedPackage.PipOverrides != null)
+        {
+            pipArgs = pipArgs.WithUserOverrides(installedPackage.PipOverrides);
+        }
+
+        await venvRunner.PipInstall(pipArgs, onConsoleOutput).ConfigureAwait(false);
 
         progress?.Report(new ProgressReport(1f, "Install complete", isIndeterminate: false));
     }
 
     public override async Task RunPackage(
-        string installedPackagePath,
-        string command,
-        string arguments,
-        Action<ProcessOutput>? onConsoleOutput
+        string installLocation,
+        InstalledPackage installedPackage,
+        RunPackageOptions options,
+        Action<ProcessOutput>? onConsoleOutput = null,
+        CancellationToken cancellationToken = default
     )
     {
-        await SetupVenv(installedPackagePath).ConfigureAwait(false);
+        await SetupVenv(installLocation).ConfigureAwait(false);
 
         void HandleConsoleOutput(ProcessOutput s)
         {
@@ -257,30 +265,15 @@ public class StableDiffusionUx(
             OnStartupComplete(WebUrl);
         }
 
-        var args = $"\"{Path.Combine(installedPackagePath, command)}\" {arguments}";
-
-        VenvRunner.RunDetached(args.TrimEnd(), HandleConsoleOutput, OnExit);
-    }
-
-    private async Task InstallRocmTorch(
-        PyVenvRunner venvRunner,
-        IProgress<ProgressReport>? progress = null,
-        Action<ProcessOutput>? onConsoleOutput = null
-    )
-    {
-        progress?.Report(new ProgressReport(-1f, "Installing PyTorch for ROCm", isIndeterminate: true));
-
-        await venvRunner.PipInstall(["--upgrade", "pip", "wheel"], onConsoleOutput).ConfigureAwait(false);
-
-        await venvRunner
-            .PipInstall(
-                new PipInstallArgs()
-                    .WithTorch("==2.0.1")
-                    .WithTorchVision("==0.15.2")
-                    .WithTorchExtraIndex("rocm5.4.2"),
-                onConsoleOutput
-            )
-            .ConfigureAwait(false);
+        VenvRunner.RunDetached(
+            [
+                Path.Combine(installLocation, options.Command ?? LaunchCommand),
+                ..options.Arguments,
+                ..ExtraLaunchArguments
+            ],
+            HandleConsoleOutput,
+            OnExit
+        );
     }
 
     private class A3WebUiExtensionManager(StableDiffusionUx package)
